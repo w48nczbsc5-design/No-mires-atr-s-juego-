@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NO ESTÁS SOLO</title>
+<style>
+  html, body { 
+    margin: 0; padding: 0; background: black; color: #600; 
+    font-family: 'Courier New', monospace; height: 100%; overflow: hidden; 
+  }
+
+  #start {
+    position: fixed; inset: 0; display: flex; justify-content: center; 
+    align-items: center; font-size: 20px; z-index: 50; background: black; 
+    cursor: pointer; color: #ddd; text-align: center;
+  }
+
+  #game { padding: 30px; font-size: 19px; line-height: 1.6; position: relative; z-index: 10; }
+
+  .choice {
+    margin-top: 25px; padding: 15px; border: 1px solid #300;
+    text-align: center; cursor: pointer; color: #bbb; transition: 0.2s;
+  }
+  .choice:hover { background: #200; color: white; border-color: red; }
+
+  /* Contenedor del Monstruo Turbio */
+  #entity {
+    position: fixed; inset: 0; z-index: 5; opacity: 0;
+    background-position: center; background-repeat: no-repeat; background-size: cover;
+    pointer-events: none; transition: opacity 0.5s;
+  }
+
+  /* Animación de distorsión */
+  @keyframes noise {
+    0% { transform: translate(0,0) scale(1); filter: blur(1px); }
+    50% { transform: translate(-5px, 5px) scale(1.02); filter: blur(2px) contrast(150%); }
+    100% { transform: translate(0,0) scale(1); filter: blur(1px); }
+  }
+  .active-noise { animation: noise 0.1s infinite; }
+
+  #overlay {
+    position: fixed; inset: 0; background: red; opacity: 0; z-index: 100; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="start">El juego ha comenzado.<br>[ Toca para aceptar tu destino ]</div>
+<div id="game"></div>
+<div id="entity"></div>
+<div id="overlay"></div>
+
+<audio id="amb" loop><source src="https://cdn.pixabay.com/audio/2022/08/02/audio_1c1fa5d3b3.mp3"></audio>
+<audio id="hit"><source src="https://cdn.pixabay.com/audio/2022/03/15/audio_7fddc5a2f4.mp3"></audio>
+<audio id="whisper"><source src="https://cdn.pixabay.com/audio/2021/11/04/audio_983794b611.mp3"></audio>
+
+<script>
+const game = document.getElementById("game");
+const entity = document.getElementById("entity");
+const start = document.getElementById("start");
+const amb = document.getElementById("amb");
+const hit = document.getElementById("hit");
+const whisper = document.getElementById("whisper");
+const overlay = document.getElementById("overlay");
+
+let paranoia = 0; // Escala de decisiones
+
+// Representación del monstruo en SVG turbio
+const monstruoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="black"/>
+  <path d="M40 80 Q70 50 100 85 T160 80" fill="none" stroke="#200" stroke-width="5" opacity="0.5"/>
+  <ellipse cx="70" cy="85" rx="25" ry="35" fill="white" opacity="0.8"/>
+  <ellipse cx="135" cy="88" rx="18" ry="40" fill="white" opacity="0.8"/>
+  <circle cx="72" cy="85" r="8" fill="black"/>
+  <circle cx="133" cy="88" r="6" fill="black"/>
+  <path d="M50 150 Q100 130 150 160" stroke="red" stroke-width="2" fill="none" opacity="0.7"/>
+</svg>`;
+
+function initEntity() {
+  entity.style.backgroundImage = `url('data:image/svg+xml;utf8,${encodeURIComponent(monstruoSVG)}')`;
+}
+
+function type(t, cb) {
+  game.innerHTML = "";
+  let i = 0;
+  let s = setInterval(() => {
+    game.innerHTML += t[i++];
+    if (i >= t.length) { clearInterval(s); cb && setTimeout(cb, 1000); }
+  }, 45);
+}
+
+function choice(options) {
+  let container = document.createElement("div");
+  options.forEach(opt => {
+    let d = document.createElement("div");
+    d.className = "choice";
+    d.textContent = opt.txt;
+    d.onclick = () => { paranoia += opt.p; opt.fn(); };
+    container.appendChild(d);
+  });
+  game.appendChild(container);
+}
+
+// --- HISTORIA ---
+
+function inicio() {
+  const h = new Date().getHours();
+  type(`Son las ${h}:${new Date().getMinutes()}. Deberías estar durmiendo, pero hay algo en el aire que no te deja.`, () => {
+    choice([
+      { txt: "Mirar debajo de la cama", p: 1, fn: escena2 },
+      { txt: "Ignorar el frío y seguir leyendo", p: -1, fn: escena2 }
+    ]);
+  });
+}
+
+function escena2() {
+  entity.style.opacity = "0.1"; // Aparece sutilmente
+  type("Escuchas un crujido metálico. El sonido no viene de fuera, viene de dentro de tu habitación.", () => {
+    whisper.play();
+    choice([
+      { txt: "¿Quién eres?", p: 1, fn: escena3 },
+      { txt: "No tengo miedo", p: -1, fn: escena3 },
+      { txt: "Salir corriendo", p: 0, fn: escena3 }
+    ]);
+  });
+}
+
+function escena3() {
+  entity.style.opacity = "0.3";
+  type("El susurro responde: 'Soy la sombra que proyectas cuando no hay luz. Y hoy tengo hambre'.", () => {
+    choice([
+      { txt: "Arrodillarse y rezar", p: 2, fn: finalCheck },
+      { txt: "Gritar por ayuda", p: 1, fn: finalCheck },
+      { txt: "Mirarlo fijamente a los ojos", p: -2, fn: finalCheck }
+    ]);
+  });
+}
+
+function finalCheck() {
+  if (paranoia >= 3) finalMiedo();
+  else if (paranoia <= -2) finalValiente();
+  else finalEterno();
+}
+
+// FINAL 1: MUERTE SÚBITA (Screamer)
+function finalMiedo() {
+  type("Tu miedo es tan dulce... Gracias por alimentarme.", () => {
+    setTimeout(() => {
+      hit.play();
+      if(navigator.vibrate) navigator.vibrate([500, 100, 500]);
+      document.body.classList.add("active-noise");
+      entity.style.opacity = "1";
+      entity.style.filter = "invert(100%) contrast(300%)";
+      game.innerHTML = "<h1 style='color:red; font-size:50px; text-align:center;'>TE ENCONTRÉ</h1>";
+    }, 1000);
+  });
+}
+
+// FINAL 2: EL OBSERVADO
+function finalValiente() {
+  type("No tiemblas. Eso es aburrido. Me iré... pero dejaré mi marca en tu sombra.", () => {
+    setTimeout(() => {
+      document.body.style.background = "#0a0000";
+      game.innerHTML = "<h1 style='color:white;'>FINAL: EL MARCADO (Estás a salvo... por ahora)</h1>";
+    }, 2000);
+  });
+}
+
+// FINAL 3: LA MALDICIÓN
+function finalEterno() {
+  type("Intentaste jugar, pero no terminaste. Ahora yo jugaré contigo cada vez que apagues el monitor.", () => {
+    setTimeout(() => {
+      overlay.style.opacity = "0.5";
+      document.body.style.filter = "sepia(100%) blur(1px)";
+      entity.style.opacity = "0.6";
+      game.innerHTML = "<h1 style='color:black;'>FINAL: MALDICIÓN VINCULADA</h1>";
+    }, 2000);
+  });
+}
+
+start.onclick = () => {
+  start.style.display = "none";
+  amb.play();
+  initEntity();
+  inicio();
+};
+</script>
+</body>
+</html>
